@@ -21,6 +21,7 @@ add_executable(factory_tests
     test_string_to_figure.cpp
     test_random_factory.cpp
     test_abstract_factory.cpp
+    test_figure_registry.cpp
 )
 
 # Link your library and the Google Test main library

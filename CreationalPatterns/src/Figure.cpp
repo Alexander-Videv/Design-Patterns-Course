@@ -1,4 +1,5 @@
 #include "../include/Figure.hpp"
+#include "../include/FigureRegistry.hpp"
 
 #include <string_view>
 #include <iomanip>
@@ -57,6 +58,24 @@ std::string Triangle::to_string() const
            format_double(c);
 }
 
+void Triangle::register_shape()
+{
+    // 1. How to build a Triangle from text arguments
+    TextFigureRegistry::register_shape({"triangle", 3}, [](const std::vector<double> &args) -> std::unique_ptr<Figure>
+                                       { return std::make_unique<Triangle>(args[0], args[1], args[2]); });
+
+    // 2. How to build a valid random Triangle in one shot (Las Vegas, zero retries)
+    RandomFigureRegistry::register_shape("triangle", [](std::mt19937 &rng, double min, double max) -> std::unique_ptr<Figure>
+                                         {
+        constexpr double eps = 0.01;
+        std::uniform_real_distribution<double> dist(min, max);
+        double a = dist(rng);
+        double b = dist(rng);
+
+        std::uniform_real_distribution<double> c_dist(std::abs(a - b) + eps, (a + b) - eps);
+        return std::make_unique<Triangle>(a, b, c_dist(rng)); });
+}
+
 //---------- Rectangle impl
 
 Rectangle::Rectangle(double a, double b)
@@ -86,6 +105,17 @@ std::string Rectangle::to_string() const
     return "rectangle " +
            format_double(a) + " " +
            format_double(b);
+}
+
+void Rectangle::register_shape()
+{
+    TextFigureRegistry::register_shape({"rectangle", 2}, [](const std::vector<double> &args) -> std::unique_ptr<Figure>
+                                       { return std::make_unique<Rectangle>(args[0], args[1]); });
+
+    RandomFigureRegistry::register_shape("rectangle", [](std::mt19937 &rng, double min, double max) -> std::unique_ptr<Figure>
+                                         {
+        std::uniform_real_distribution<double> dist(min, max);
+        return std::make_unique<Rectangle>(dist(rng), dist(rng)); });
 }
 
 //---------- Circle impl
@@ -121,4 +151,15 @@ std::string Circle::to_string() const
 std::unique_ptr<Cloneable> Cloneable::clone() const
 {
     return std::unique_ptr<Cloneable>(clone_impl());
+}
+
+void Circle::register_shape()
+{
+    TextFigureRegistry::register_shape({"circle", 1}, [](const std::vector<double> &args) -> std::unique_ptr<Figure>
+                                       { return std::make_unique<Circle>(args[0]); });
+
+    RandomFigureRegistry::register_shape("circle", [](std::mt19937 &rng, double min, double max) -> std::unique_ptr<Figure>
+                                         {
+        std::uniform_real_distribution<double> dist(min, max);
+        return std::make_unique<Circle>(dist(rng)); });
 }

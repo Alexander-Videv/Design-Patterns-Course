@@ -3,6 +3,8 @@
 
 int main()
 {
+    register_shapes();
+
     AbstractFigureFactory abstract_fact;
 
     // std::unique_ptr<FigureFactory> console_fact = abstract_fact.create("console");
@@ -18,6 +20,8 @@ int main()
     // std::unique_ptr<Figure> my_fig2 = StringToFigure::create_from("circle 45 rectangle 88 77");
 
     // std::cout << *my_fig2 << "\n";
+
+    std::cout << StringToFigure::create_from("triangle 3 4 5")->to_string() << '\n';
 
     RandomFactory rand_fact(0, 3000, 4000);
 

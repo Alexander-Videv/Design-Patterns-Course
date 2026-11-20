@@ -47,6 +47,8 @@ public:
 
     Triangle(double a, double b, double c);
 
+    static void register_shape();
+
 protected:
     virtual Triangle *clone_impl() const override;
 
@@ -67,6 +69,8 @@ public:
 
     Rectangle(double a, double b);
 
+    static void register_shape();
+
 protected:
     virtual Rectangle *clone_impl() const override;
 
@@ -86,11 +90,21 @@ public:
 
     Circle(double radius);
 
+    static void register_shape();
+
 protected:
     virtual Circle *clone_impl() const override;
 
 private:
     double radius;
 };
+
+static bool register_shapes()
+{
+    Circle::register_shape();
+    Rectangle::register_shape();
+    Triangle::register_shape();
+    return true;
+}
 
 #endif

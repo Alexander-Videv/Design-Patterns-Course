@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "../include/Factory.hpp"
 
+const bool registered = register_shapes();
+
 TEST(StringToFigureTest, CreateFrom_ValidInputs_ReturnsExpectedFigures)
 {
     auto t = StringToFigure::create_from("triangle 3 4 5");
@@ -27,10 +29,14 @@ TEST(StringToFigureTest, CreateFrom_InvalidInputs_ReturnsNullptr)
     EXPECT_EQ(StringToFigure::create_from("CIRCLE 5"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("triangle 1 2 10"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("triangle 3 4"), nullptr);
+    EXPECT_EQ(StringToFigure::create_from("triangle 3 4 5 6"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("rectangle -2 5"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("rectangle 2"), nullptr);
+    EXPECT_EQ(StringToFigure::create_from("rectangle 2 3 4"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("circle 0"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("circle -3"), nullptr);
+    EXPECT_EQ(StringToFigure::create_from("circle 5 10"), nullptr);
+    EXPECT_EQ(StringToFigure::create_from("circle 5 abc"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("circle abc"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("circle"), nullptr);
 }

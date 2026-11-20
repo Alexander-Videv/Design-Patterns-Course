@@ -1,7 +1,9 @@
 #include "../include/Factory.hpp"
+#include "../include/FigureRegistry.hpp"
 
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 
 const double EPSILON = 0.01;
 double min_val = 0.01;
@@ -88,22 +90,30 @@ std::unique_ptr<Figure> StringToFigure::create_from(const std::string &str)
 
     std::string type_string;
 
-    ss >> type_string;
+    if (!(ss >> type_string))
+        return nullptr;
 
-    FIGURE_TYPE type = type_from_string(type_string);
+    std::vector<double> args;
 
-    switch (type)
+    double curr_val = 0.0;
+
+    while (ss >> curr_val)
+        args.push_back(curr_val);
+
+    if (!ss.eof())
+        return nullptr;
+
+    const auto *ctor = TextFigureRegistry::find({type_string, args.size()});
+    if (!ctor)
+        return nullptr;
+
+    try
     {
-    case FIGURE_TYPE::TRIANGLE:
-        return read_triangle(ss);
-
-    case FIGURE_TYPE::RECTANGLE:
-        return read_rectangle(ss);
-
-    case FIGURE_TYPE::CIRCLE:
-        return read_circle(ss);
-
-    default:
+        return (*ctor)(args);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << '\n';
         return nullptr;
     }
 }
@@ -150,46 +160,15 @@ RandomFactory::RandomFactory(unsigned long seed, double min, double max)
 // Suggested by Gemini
 std::unique_ptr<Figure> RandomFactory::create()
 {
-
-    std::uniform_int_distribution<int> rand_type(0, static_cast<int>(FIGURE_TYPE::COUNT) - 1);
-    std::uniform_real_distribution<double> rand_double(min_val, max_val);
-
-    FIGURE_TYPE type = static_cast<FIGURE_TYPE>(rand_type(rng));
-
-    switch (type)
-    {
-    case FIGURE_TYPE::TRIANGLE:
-    {
-        double a = rand_double(rng);
-        double b = rand_double(rng);
-
-        // Satisfy triangle inequality: |a - b| < c < a + b
-        double min_c = std::abs(a - b) + EPSILON;
-        double max_c = (a + b) - EPSILON;
-
-        std::uniform_real_distribution<double> rand_c(min_c, max_c);
-
-        double c = rand_c(rng);
-
-        return std::make_unique<Triangle>(a, b, c);
-    }
-
-    case FIGURE_TYPE::RECTANGLE:
-    {
-        double a = rand_double(rng);
-        double b = rand_double(rng);
-        return std::make_unique<Rectangle>(a, b);
-    }
-
-    case FIGURE_TYPE::CIRCLE:
-    {
-        double radius = rand_double(rng);
-        return std::make_unique<Circle>(radius);
-    }
-
-    default:
+    const auto &reg = RandomFigureRegistry::entries();
+    if (reg.empty())
         return nullptr;
-    }
+
+    std::uniform_int_distribution<std::size_t> pick(0, reg.size() - 1);
+    auto it = reg.begin();
+    std::advance(it, pick(rng));
+
+    return it->second(rng, min_val, max_val);
 }
 
 //---------- Abstract Figure Factory impl

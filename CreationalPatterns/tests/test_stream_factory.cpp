@@ -203,12 +203,12 @@ TEST(StreamFigureFactoryTest, Create_ExtraTrailingTokens_ConsumesWholeLineAndMov
 {
     std::istringstream iss(
         "rectangle 18 18 18 18 18\n"
+        "circle 5 abc\n"
         "circle 5\n");
     StreamFigureFactory factory(iss);
 
-    auto rect = factory.create();
-    ASSERT_NE(rect, nullptr);
-    EXPECT_EQ(rect->to_string(), "rectangle 18.00 18.00");
+    EXPECT_EQ(factory.create(), nullptr); // Too many numeric args
+    EXPECT_EQ(factory.create(), nullptr); // Trailing non-numeric token
 
     auto circ = factory.create();
     ASSERT_NE(circ, nullptr);
