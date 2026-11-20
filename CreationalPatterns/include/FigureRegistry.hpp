@@ -1,18 +1,37 @@
-#ifndef FIGURE_REGISTRIES_HPP
-#define FIGURE_REGISTRIES_HPP
+// include/FigureRegistry.hpp
+#ifndef FIGURE_REGISTRY_HPP
+#define FIGURE_REGISTRY_HPP
 
 #include "Figure.hpp"
-#include "Registry.hpp"
 
+#include <functional>
+#include <map>
 #include <memory>
-#include <random>
 #include <string>
-#include <utility>
 #include <vector>
 
-using TextKey = std::pair<std::string, std::size_t>;
-using TextFigureRegistry = Registry<TextKey, std::unique_ptr<Figure>(const std::vector<double> &)>;
+class FigureRegistry
+{
+public:
+    using Creator = std::function<std::unique_ptr<Figure>(const std::vector<double> &)>;
 
-using RandomFigureRegistry = Registry<std::string, std::unique_ptr<Figure>(std::mt19937 &, double min, double max)>;
+    struct Entry
+    {
+        std::vector<std::size_t> arg_counts;
+        Creator create;
+    };
 
-#endif // FIGURE_REGISTRIES_HPP
+    static bool register_shape(const std::string &name,
+                               std::vector<std::size_t> arg_counts,
+                               Creator creator);
+
+    static bool unregister_shape(const std::string &name);
+
+    static const Entry *find(const std::string &name);
+    static const std::map<std::string, Entry> &entries();
+
+private:
+    static std::map<std::string, Entry> &mutable_entries();
+};
+
+#endif // FIGURE_REGISTRY_HPP

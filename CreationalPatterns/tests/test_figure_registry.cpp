@@ -25,52 +25,68 @@ protected:
 
     void TearDown() override
     {
-        TextFigureRegistry::unregister_shape({"square", 1});
-        RandomFigureRegistry::unregister_shape("square");
+        FigureRegistry::unregister_shape("square");
+        FigureRegistry::unregister_shape("impossible");
         restore_default_shapes();
     }
 };
 
-TEST_F(FigureRegistryTest, DefaultShapes_AreRegisteredAtStartup)
+TEST_F(FigureRegistryTest, DefaultShapes_AreRegisteredWithExpectedArgCounts)
 {
-    EXPECT_NE(TextFigureRegistry::find({"circle", 1}), nullptr);
-    EXPECT_NE(TextFigureRegistry::find({"rectangle", 2}), nullptr);
-    EXPECT_NE(TextFigureRegistry::find({"triangle", 3}), nullptr);
+    const auto *circle = FigureRegistry::find("circle");
+    ASSERT_NE(circle, nullptr);
+    EXPECT_EQ(circle->arg_counts, (std::vector<std::size_t>{1}));
 
-    EXPECT_NE(RandomFigureRegistry::find("circle"), nullptr);
-    EXPECT_NE(RandomFigureRegistry::find("rectangle"), nullptr);
-    EXPECT_NE(RandomFigureRegistry::find("triangle"), nullptr);
+    const auto *rect = FigureRegistry::find("rectangle");
+    ASSERT_NE(rect, nullptr);
+    EXPECT_EQ(rect->arg_counts, (std::vector<std::size_t>{2}));
+
+    const auto *tri = FigureRegistry::find("triangle");
+    ASSERT_NE(tri, nullptr);
+    EXPECT_EQ(tri->arg_counts, (std::vector<std::size_t>{3}));
+
+    EXPECT_EQ(FigureRegistry::find("unknown_shape"), nullptr);
 }
 
-TEST_F(FigureRegistryTest, RegisterShape_RejectsNullCreator)
+TEST_F(FigureRegistryTest, RegisterShape_RejectsInvalidArguments)
 {
-    EXPECT_FALSE(TextFigureRegistry::register_shape({"null_shape", 1}, nullptr));
-    EXPECT_EQ(TextFigureRegistry::find({"null_shape", 1}), nullptr);
+    auto dummy_creator = [](const std::vector<double> &a)
+    {
+        return std::make_unique<Circle>(a[0]);
+    };
 
-    EXPECT_FALSE(RandomFigureRegistry::register_shape("null_shape", nullptr));
-    EXPECT_EQ(RandomFigureRegistry::find("null_shape"), nullptr);
+    EXPECT_FALSE(FigureRegistry::register_shape("", {1}, dummy_creator));
+    EXPECT_FALSE(FigureRegistry::register_shape("empty_args", {}, dummy_creator));
+    EXPECT_FALSE(FigureRegistry::register_shape("null_creator", {1}, nullptr));
+
+    EXPECT_EQ(FigureRegistry::find(""), nullptr);
+    EXPECT_EQ(FigureRegistry::find("empty_args"), nullptr);
+    EXPECT_EQ(FigureRegistry::find("null_creator"), nullptr);
 }
 
-TEST_F(FigureRegistryTest, RegisterAndUnregister_WorksDynamicallyAtRuntime)
+TEST_F(FigureRegistryTest, RegisterAndUnregister_WorksDynamicallyAcrossFactories)
 {
-    // Register a custom "square" alias on the fly
-    ASSERT_TRUE(TextFigureRegistry::register_shape({"square", 1}, [](const std::vector<double> &a)
-                                                   { return std::make_unique<Rectangle>(a[0], a[0]); }));
+    // Register a custom "square" alias at runtime
+    ASSERT_TRUE(FigureRegistry::register_shape("square", {1}, [](const std::vector<double> &a)
+                                               { return std::make_unique<Rectangle>(a[0], a[0]); }));
 
+    // Works in StringToFigure
     auto sq = StringToFigure::create_from("square 5");
     ASSERT_NE(sq, nullptr);
     EXPECT_EQ(sq->to_string(), "rectangle 5.00 5.00");
+    EXPECT_EQ(StringToFigure::create_from("square 5 6"), nullptr);
 
-    // Unregister it and verify it is no longer recognized
-    EXPECT_TRUE(TextFigureRegistry::unregister_shape({"square", 1}));
-    EXPECT_FALSE(TextFigureRegistry::unregister_shape({"square", 1})); // Already removed
+    // Unregister and verify removal
+    EXPECT_TRUE(FigureRegistry::unregister_shape("square"));
+    EXPECT_FALSE(FigureRegistry::unregister_shape("square")); // Already removed
+    EXPECT_EQ(FigureRegistry::find("square"), nullptr);
     EXPECT_EQ(StringToFigure::create_from("square 5"), nullptr);
 }
 
-TEST_F(FigureRegistryTest, UnregisterFromRandomRegistry_ExcludesShapeFromGeneration)
+TEST_F(FigureRegistryTest, UnregisterShape_ExcludesItFromRandomGeneration)
 {
-    ASSERT_TRUE(RandomFigureRegistry::unregister_shape("triangle"));
-    ASSERT_TRUE(RandomFigureRegistry::unregister_shape("rectangle"));
+    ASSERT_TRUE(FigureRegistry::unregister_shape("triangle"));
+    ASSERT_TRUE(FigureRegistry::unregister_shape("rectangle"));
 
     RandomFactory factory(42, 1.0, 50.0);
     for (int i = 0; i < 30; ++i)
@@ -81,11 +97,24 @@ TEST_F(FigureRegistryTest, UnregisterFromRandomRegistry_ExcludesShapeFromGenerat
     }
 }
 
-TEST_F(FigureRegistryTest, EmptyRandomRegistry_ReturnsNullptrCleanly)
+TEST_F(FigureRegistryTest, EmptyRegistry_RandomFactoryReturnsNullptrCleanly)
 {
-    RandomFigureRegistry::unregister_shape("circle");
-    RandomFigureRegistry::unregister_shape("rectangle");
-    RandomFigureRegistry::unregister_shape("triangle");
+    FigureRegistry::unregister_shape("circle");
+    FigureRegistry::unregister_shape("rectangle");
+    FigureRegistry::unregister_shape("triangle");
+
+    RandomFactory factory(42, 1.0, 50.0);
+    EXPECT_EQ(factory.create(), nullptr);
+}
+
+TEST_F(FigureRegistryTest, UnsatisfiableShape_RandomFactoryHitsRetryCapAndReturnsNullptr)
+{
+    FigureRegistry::unregister_shape("circle");
+    FigureRegistry::unregister_shape("rectangle");
+    FigureRegistry::unregister_shape("triangle");
+
+    ASSERT_TRUE(FigureRegistry::register_shape("impossible", {1}, [](const std::vector<double> &) -> std::unique_ptr<Figure>
+                                               { return nullptr; }));
 
     RandomFactory factory(42, 1.0, 50.0);
     EXPECT_EQ(factory.create(), nullptr);

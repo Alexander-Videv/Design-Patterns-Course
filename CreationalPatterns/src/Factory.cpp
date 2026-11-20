@@ -103,13 +103,17 @@ std::unique_ptr<Figure> StringToFigure::create_from(const std::string &str)
     if (!ss.eof())
         return nullptr;
 
-    const auto *ctor = TextFigureRegistry::find({type_string, args.size()});
-    if (!ctor)
+    const auto *entry = FigureRegistry::find(type_string);
+    if (!entry)
+        return nullptr;
+
+    const auto &counts = entry->arg_counts;
+    if (std::find(counts.begin(), counts.end(), args.size()) == counts.end())
         return nullptr;
 
     try
     {
-        return (*ctor)(args);
+        return entry->create(args);
     }
     catch (const std::exception &e)
     {
@@ -160,15 +164,41 @@ RandomFactory::RandomFactory(unsigned long seed, double min, double max)
 // Suggested by Gemini
 std::unique_ptr<Figure> RandomFactory::create()
 {
-    const auto &reg = RandomFigureRegistry::entries();
+    const auto &reg = FigureRegistry::entries();
     if (reg.empty())
         return nullptr;
 
-    std::uniform_int_distribution<std::size_t> pick(0, reg.size() - 1);
+    std::uniform_int_distribution<std::size_t> shape_dist(0, reg.size() - 1);
     auto it = reg.begin();
-    std::advance(it, pick(rng));
+    std::advance(it, shape_dist(rng));
 
-    return it->second(rng, min_val, max_val);
+    const auto &entry = it->second;
+    if (entry.arg_counts.empty())
+        return nullptr;
+
+    std::uniform_int_distribution<std::size_t> count_dist(0, entry.arg_counts.size() - 1);
+    std::uniform_real_distribution<double> dim_dist(min_val, max_val);
+
+    constexpr int max_attempts = 1000;
+    for (int attempt = 0; attempt < max_attempts; ++attempt)
+    {
+        const std::size_t arg_count = entry.arg_counts[count_dist(rng)];
+        std::vector<double> args(arg_count);
+        for (double &val : args)
+            val = dim_dist(rng);
+
+        try
+        {
+            if (auto fig = entry.create(args))
+                return fig;
+        }
+        catch (const std::exception &)
+        {
+            // Invalid random geometry (e.g. triangle inequality) -> re-roll
+        }
+    }
+
+    return nullptr;
 }
 
 //---------- Abstract Figure Factory impl

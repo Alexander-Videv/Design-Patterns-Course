@@ -2,6 +2,7 @@
 add_library(figure_lib 
     Figure.cpp
     Factory.cpp
+    FigureRegistry.cpp
 )
 
 target_include_directories(figure_lib PUBLIC 
